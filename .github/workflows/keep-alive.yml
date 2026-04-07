@@ -8,7 +8,7 @@ on:
 jobs:
   ping:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 6
 
     steps:
       - name: Set URLs
@@ -16,45 +16,55 @@ jobs:
           echo "API_URL=https://enerbyte-api.onrender.com/api/docs/" >> $GITHUB_ENV
           echo "FRONT_URL=https://enerbyte-front.onrender.com/" >> $GITHUB_ENV
 
-      # API
+      # 1. BACKEND PRIMERO
       - name: Ping API (with retries)
         run: |
           echo "=== Ping API ==="
           for i in 1 2 3; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$API_URL") || STATUS="000"
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 25 "$API_URL") || STATUS="000"
             echo "Intento $i → status: $STATUS"
+
             if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 500 ]; then
               echo "API OK"
               break
             fi
+
             echo "Reintentando en 5s..."
             sleep 5
           done
+
           echo "API final status: $STATUS"
         continue-on-error: true
 
-      # Pequeña pausa para asegurar que backend esté listo
+      # Espera para que el backend termine de levantar
       - name: Wait before frontend
-        run: sleep 10
+        run: |
+          echo "Esperando backend..."
+          sleep 15
 
-      # LUEGO FRONTEND
-      - name: Ping Frontend (with retries)
+      # 2. FRONTEND
+      - name: Ping Frontend (slow start optimized)
         run: |
           echo "=== Ping Frontend ==="
-          for i in 1 2 3; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$FRONT_URL") || STATUS="000"
+
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 40 "$FRONT_URL") || STATUS="000"
             echo "Intento $i → status: $STATUS"
+
             if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 500 ]; then
               echo "Frontend OK"
               break
             fi
-            echo "Reintentando en 5s..."
-            sleep 5
+
+            echo "Esperando 10s antes de reintentar..."
+            sleep 10
           done
+
           echo "Frontend final status: $STATUS"
         continue-on-error: true
 
+      # LOG FINAL
       - name: Done
         run: |
-          echo "=== Keep-alive ejecutado ==="
+          echo "=== Keep-alive ejecutado correctamente ==="
           date
