@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Set URLs
         run: |
-          echo "API_URL=https://enerbyte-api.onrender.com/api/docs/" >> $GITHUB_ENV
+          echo "API_URL=https://enerbyte-api.onrender.com" >> $GITHUB_ENV
           echo "FRONT_URL=https://enerbyte-front.onrender.com/" >> $GITHUB_ENV
 
       # 1. BACKEND PRIMERO
