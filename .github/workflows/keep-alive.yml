@@ -1,21 +1,54 @@
-name: Keep Render Services Awake
+name: Keep Render Services Awake (Pro)
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "*/5 * * * *"   # cada 5 minutos
   workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
-      - name: Ping Frontend
+      - name: Set URLs
         run: |
-          echo "Haciendo ping al frontend..."
-          curl -s -o /dev/null -w "Frontend status: %{http_code}\n" https://enerbyte-front.onrender.com/ || echo "Error en frontend"
+          echo "FRONT_URL=https://enerbyte-front.onrender.com/" >> $GITHUB_ENV
+          echo "API_URL=https://enerbyte-api.onrender.com/health" >> $GITHUB_ENV
 
-      - name: Ping API
+      - name: Ping Frontend (with retries)
         run: |
-          echo "Haciendo ping al API..."
-          curl -s -o /dev/null -w "API status: %{http_code}\n" https://enerbyte-api.onrender.com/api/docs/ || echo "Error en API"
+          echo "=== Ping Frontend ==="
+          for i in 1 2 3; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$FRONT_URL") || STATUS="000"
+            echo "Intento $i → status: $STATUS"
+            if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 500 ]; then
+              echo "Frontend OK"
+              break
+            fi
+            echo "Reintentando en 5s..."
+            sleep 5
+          done
+          echo "Frontend final status: $STATUS"
+        continue-on-error: true
+
+      - name: Ping API (with retries)
+        run: |
+          echo "=== Ping API ==="
+          for i in 1 2 3; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$API_URL") || STATUS="000"
+            echo "Intento $i → status: $STATUS"
+            if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 500 ]; then
+              echo "API OK"
+              break
+            fi
+            echo "Reintentando en 5s..."
+            sleep 5
+          done
+          echo "API final status: $STATUS"
+        continue-on-error: true
+
+      - name: Done
+        run: |
+          echo "=== Keep-alive ejecutado ==="
+          date
